@@ -1029,14 +1029,28 @@ int main(int argc, char** argv)
     signal(SIGINT, &ExitHandler::exitHandler);
 
     unsigned n = c.blockChain().details().number;
+    auto extract_block = [&c](unsigned height) {
+      auto hash = c.hashFromNumber(height);
+      auto txs = c.transactions(hash);
+      for (auto &tx : txs) {
+        std::cout << toHex(tx.data()) << std::endl;
+      }
+    };
+
     if (mining)
         c.startSealing();
 
-    while (!exitHandler.shouldExit())
-        stopSealingAfterXBlocks(&c, n, mining);
+    auto tmpn = n;
+    while (!exitHandler.shouldExit()) {
+      if (c.blockChain().details().number > tmpn) {
+        tmpn = c.blockChain().details().number;
+        extract_block(tmpn);
+      }
+      stopSealingAfterXBlocks(&c, n, mining);
+    }
 
     if (jsonrpcIpcServer.get())
-        jsonrpcIpcServer->StopListening();
+      jsonrpcIpcServer->StopListening();
 
     if (web3.isNetworkStarted())
     {

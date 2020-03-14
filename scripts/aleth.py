@@ -7,7 +7,7 @@ import os
 
 from dopple import run_daemon, DEFAULT_PROXY_URL, DEFAULT_BACKEND_PATH
 
-DEFAULT_ALETH_EXEC = '/usr/bin/aleth'
+DEFAULT_ALETH_EXEC = '/usr/local/bin/aleth'
 
 parser = argparse.ArgumentParser(add_help=False)
 parser.add_argument('--aleth-exec', default=DEFAULT_ALETH_EXEC)
