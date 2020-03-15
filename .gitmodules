@@ -10,3 +10,6 @@
 [submodule "scripts/dopple"]
 	path = scripts/dopple
 	url = https://github.com/ethereum/dopple
+[submodule "libubre"]
+	path = libubre
+	url = https://github.com/xchmwang/libubre.git
