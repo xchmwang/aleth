@@ -154,7 +154,7 @@ ImportResult BlockQueue::import(bytesConstRef _block, bool _isOurs)
     // Check if we already know this block.
     h256 h = BlockHeader::headerHashFromBlock(_block);
 
-    LOG(m_loggerDetail) << "Queuing block " << h << " for import...";
+    BLOG(m_loggerDetail) << "Queuing block " << h << " for import...";
 
     UpgradableGuard l(m_lock);
 
@@ -162,7 +162,7 @@ ImportResult BlockQueue::import(bytesConstRef _block, bool _isOurs)
         contains(m_knownBad, h) || contains(m_futureSet, h))
     {
         // Already know about this one.
-        LOG(m_loggerDetail) << "Already known.";
+        BLOG(m_loggerDetail) << "Already known.";
         return ImportResult::AlreadyKnown;
     }
 
@@ -179,13 +179,14 @@ ImportResult BlockQueue::import(bytesConstRef _block, bool _isOurs)
         return ImportResult::Malformed;
     }
 
-    LOG(m_loggerDetail) << "Block " << h << " is " << bi.number() << " parent is " << bi.parentHash();
+    BLOG(m_loggerDetail) << "Block " << h << " is " << bi.number()
+                         << " parent is " << bi.parentHash();
 
     // Check block doesn't already exist first!
     if (m_bc->isKnown(h))
     {
-        LOG(m_logger) << "Already known in chain.";
-        return ImportResult::AlreadyInChain;
+      BLOG(m_logger) << "Already known in chain.";
+      return ImportResult::AlreadyInChain;
     }
 
     UpgradeGuard ul(l);
@@ -200,8 +201,9 @@ ImportResult BlockQueue::import(bytesConstRef _block, bool _isOurs)
         time_t bit = static_cast<time_t>(bi.timestamp());
         if (strftime(buf, 24, "%X", localtime(&bit)) == 0)
             buf[0] = '\0'; // empty if case strftime fails
-        LOG(m_loggerDetail) << "OK - queued for future [" << bi.timestamp() << " vs " << utcTime()
-                         << "] - will wait until " << buf;
+        BLOG(m_loggerDetail) << "OK - queued for future [" << bi.timestamp()
+                             << " vs " << utcTime() << "] - will wait until "
+                             << buf;
         m_difficulty += bi.difficulty();
         h256 const parentHash = bi.parentHash();
         bool const unknown = !contains(m_readySet, parentHash) &&
@@ -222,7 +224,8 @@ ImportResult BlockQueue::import(bytesConstRef _block, bool _isOurs)
         else if (!m_readySet.count(bi.parentHash()) && !m_drainingSet.count(bi.parentHash()) && !m_bc->isKnown(bi.parentHash()))
         {
             // We don't know the parent (yet) - queue it up for later. It'll get resent to us if we find out about its ancestry later on.
-            LOG(m_loggerDetail) << "OK - queued as unknown parent: " << bi.parentHash();
+            BLOG(m_loggerDetail) << "OK - queued as unknown parent: "
+                                 << bi.parentHash();
             m_unknown.insert(bi.parentHash(), h, _block.toBytes());
             m_unknownSet.insert(h);
             m_difficulty += bi.difficulty();
@@ -232,7 +235,7 @@ ImportResult BlockQueue::import(bytesConstRef _block, bool _isOurs)
         else
         {
             // If valid, append to blocks.
-            LOG(m_loggerDetail) << "OK - ready for chain insertion.";
+            BLOG(m_loggerDetail) << "OK - ready for chain insertion.";
             DEV_GUARDED(m_verification)
                 m_unverified.enqueue(UnverifiedBlock { h, bi.parentHash(), _block.toBytes() });
             m_moreToVerify.notify_one();
@@ -337,13 +340,13 @@ void BlockQueue::tick()
         if (m_future.isEmpty())
             return;
 
-        LOG(m_logger) << "Checking past-future blocks...";
+        BLOG(m_logger) << "Checking past-future blocks...";
 
         time_t t = utcTime();
         if (t < m_future.firstKey())
             return;
 
-        LOG(m_logger) << "Past-future blocks ready.";
+        BLOG(m_logger) << "Past-future blocks ready.";
 
         {
             UpgradeGuard l2(l);
@@ -353,17 +356,17 @@ void BlockQueue::tick()
                 m_futureSet.erase(hash.first);
         }
     }
-    LOG(m_logger) << "Importing " << todo.size() << " past-future blocks.";
+    BLOG(m_logger) << "Importing " << todo.size() << " past-future blocks.";
 
     for (auto const& b: todo)
         import(&b.second);
 }
 
 BlockQueueStatus BlockQueue::status() const
-{ 
-    ReadGuard l(m_lock); 
-    Guard l2(m_verification); 
-    return BlockQueueStatus{ m_drainingSet.size(), m_verified.count(), m_verifying.count(), m_unverified.count(), 
+{
+    ReadGuard l(m_lock);
+    Guard l2(m_verification);
+    return BlockQueueStatus{ m_drainingSet.size(), m_verified.count(), m_verifying.count(), m_unverified.count(),
         m_future.count(), m_unknown.count(), m_knownBad.size() };
 }
 

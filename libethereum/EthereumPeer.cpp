@@ -88,14 +88,16 @@ void EthereumPeer::requestBlockHeaders(
 {
     if (m_asking != Asking::Nothing)
     {
-        LOG(m_logger) << "Asking headers while requesting " << ::toString(m_asking);
+      BLOG(m_logger) << "Asking headers while requesting "
+                     << ::toString(m_asking);
     }
     setAsking(Asking::BlockHeaders);
     RLPStream s;
     m_host->prep(m_id, c_ethCapability, s, GetBlockHeadersPacket, 4)
         << _startNumber << _count << _skip << (_reverse ? 1 : 0);
-    LOG(m_logger) << "Requesting " << _count << " block headers starting from " << _startNumber
-                  << (_reverse ? " in reverse" : "") << " from " << m_id;
+    BLOG(m_logger) << "Requesting " << _count << " block headers starting from "
+                   << _startNumber << (_reverse ? " in reverse" : "")
+                   << " from " << m_id;
     m_lastAskedHeaders = _count;
     m_host->sealAndSend(m_id, s);
 }
@@ -105,14 +107,16 @@ void EthereumPeer::requestBlockHeaders(
 {
     if (m_asking != Asking::Nothing)
     {
-        LOG(m_logger) << "Asking headers while requesting " << ::toString(m_asking);
+      BLOG(m_logger) << "Asking headers while requesting "
+                     << ::toString(m_asking);
     }
     setAsking(Asking::BlockHeaders);
     RLPStream s;
     m_host->prep(m_id, c_ethCapability, s, GetBlockHeadersPacket, 4)
         << _startHash << _count << _skip << (_reverse ? 1 : 0);
-    LOG(m_logger) << "Requesting " << _count << " block headers starting from " << _startHash
-                  << (_reverse ? " in reverse" : "") << " from " << m_id;
+    BLOG(m_logger) << "Requesting " << _count << " block headers starting from "
+                   << _startHash << (_reverse ? " in reverse" : "") << " from "
+                   << m_id;
     m_lastAskedHeaders = _count;
     m_host->sealAndSend(m_id, s);
 }
@@ -138,8 +142,8 @@ void EthereumPeer::requestByHashes(
 {
     if (m_asking != Asking::Nothing)
     {
-        LOG(m_logger) << "Asking " << ::toString(_asking) << " while requesting "
-                      << ::toString(m_asking);
+      BLOG(m_logger) << "Asking " << ::toString(_asking) << " while requesting "
+                     << ::toString(m_asking);
     }
     setAsking(_asking);
     if (_hashes.size())
@@ -148,8 +152,8 @@ void EthereumPeer::requestByHashes(
         m_host->prep(m_id, c_ethCapability, s, _packetType, _hashes.size());
         for (auto const& i : _hashes)
             s << i;
-        LOG(m_logger) << "Requesting " << _hashes.size() << " " << ::toString(_asking) << " from "
-                      << m_id;
+        BLOG(m_logger) << "Requesting " << _hashes.size() << " "
+                       << ::toString(_asking) << " from " << m_id;
         m_host->sealAndSend(m_id, s);
     }
     else

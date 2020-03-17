@@ -105,17 +105,18 @@ void Executive::initialize(Transaction const& _transaction)
         }
         catch (InvalidSignature const&)
         {
-            LOG(m_execLogger) << "Invalid Signature";
-            m_excepted = TransactionException::InvalidSignature;
-            throw;
+          BLOG(m_execLogger) << "Invalid Signature";
+          m_excepted = TransactionException::InvalidSignature;
+          throw;
         }
         if (m_t.nonce() != nonceReq)
         {
-            LOG(m_execLogger) << "Sender: " << m_t.sender().hex() << " Invalid Nonce: Required "
-                              << nonceReq << ", received " << m_t.nonce();
-            m_excepted = TransactionException::InvalidNonce;
-            BOOST_THROW_EXCEPTION(
-                InvalidNonce() << RequirementError((bigint)nonceReq, (bigint)m_t.nonce()));
+          BLOG(m_execLogger) << "Sender: " << m_t.sender().hex()
+                             << " Invalid Nonce: Required " << nonceReq
+                             << ", received " << m_t.nonce();
+          m_excepted = TransactionException::InvalidNonce;
+          BOOST_THROW_EXCEPTION(InvalidNonce() << RequirementError(
+                                    (bigint)nonceReq, (bigint)m_t.nonce()));
         }
 
         // Avoid unaffordable transactions.
@@ -123,12 +124,17 @@ void Executive::initialize(Transaction const& _transaction)
         bigint totalCost = m_t.value() + gasCost;
         if (m_s.balance(m_t.sender()) < totalCost)
         {
-            LOG(m_execLogger) << "Not enough cash: Require > " << totalCost << " = " << m_t.gas()
-                              << " * " << m_t.gasPrice() << " + " << m_t.value() << " Got"
-                              << m_s.balance(m_t.sender()) << " for sender: " << m_t.sender();
-            m_excepted = TransactionException::NotEnoughCash;
-            m_excepted = TransactionException::NotEnoughCash;
-            BOOST_THROW_EXCEPTION(NotEnoughCash() << RequirementError(totalCost, (bigint)m_s.balance(m_t.sender())) << errinfo_comment(m_t.sender().hex()));
+          BLOG(m_execLogger) << "Not enough cash: Require > " << totalCost
+                             << " = " << m_t.gas() << " * " << m_t.gasPrice()
+                             << " + " << m_t.value() << " Got"
+                             << m_s.balance(m_t.sender())
+                             << " for sender: " << m_t.sender();
+          m_excepted = TransactionException::NotEnoughCash;
+          m_excepted = TransactionException::NotEnoughCash;
+          BOOST_THROW_EXCEPTION(
+              NotEnoughCash()
+              << RequirementError(totalCost, (bigint)m_s.balance(m_t.sender()))
+              << errinfo_comment(m_t.sender().hex()));
         }
         m_gasCost = (u256)gasCost;  // Convert back to 256-bit, safe now.
     }
@@ -139,8 +145,9 @@ bool Executive::execute()
     // Entry point for a user-executed transaction.
 
     // Pay...
-    LOG(m_detailsLogger) << "Paying " << formatBalance(m_gasCost) << " from sender for gas ("
-                         << m_t.gas() << " gas at " << formatBalance(m_t.gasPrice()) << ")";
+    BLOG(m_detailsLogger) << "Paying " << formatBalance(m_gasCost)
+                          << " from sender for gas (" << m_t.gas() << " gas at "
+                          << formatBalance(m_t.gasPrice()) << ")";
     m_s.subBalance(m_t.sender(), m_gasCost);
 
     assert(m_t.gas() >= (u256)m_baseGasRequired);
@@ -276,12 +283,12 @@ bool Executive::executeCreate(Address const& _sender, u256 const& _endowment, u2
     bool accountAlreadyExist = (m_s.addressHasCode(m_newAddress) || m_s.getNonce(m_newAddress) > 0);
     if (accountAlreadyExist)
     {
-        LOG(m_detailsLogger) << "Address already used: " << m_newAddress;
-        m_gas = 0;
-        m_excepted = TransactionException::AddressAlreadyUsed;
-        revert();
-        m_ext = {}; // cancel the _init execution if there are any scheduled.
-        return !m_ext;
+      BLOG(m_detailsLogger) << "Address already used: " << m_newAddress;
+      m_gas = 0;
+      m_excepted = TransactionException::AddressAlreadyUsed;
+      revert();
+      m_ext = {}; // cancel the _init execution if there are any scheduled.
+      return !m_ext;
     }
 
     // Transfer ether before deploying the code. This will also create new
@@ -317,13 +324,15 @@ OnOpFunc Executive::simpleTrace()
         auto vm = dynamic_cast<LegacyVM const*>(_vm);
 
         if (vm)
-            LOG(traceLogger) << dumpStackAndMemory(*vm);
-        LOG(traceLogger) << dumpStorage(ext);
-        LOG(traceLogger) << " < " << dec << ext.depth << " : " << ext.myAddress << " : #" << steps
-                         << " : " << hex << setw(4) << setfill('0') << PC << " : "
-                         << instructionInfo(inst).name << " : " << dec << gas << " : -" << dec
-                         << gasCost << " : " << newMemSize << "x32"
-                         << " >";
+          BLOG(traceLogger) << dumpStackAndMemory(*vm);
+        BLOG(traceLogger) << dumpStorage(ext);
+        BLOG(traceLogger) << " < " << dec << ext.depth << " : " << ext.myAddress
+                          << " : #" << steps << " : " << hex << setw(4)
+                          << setfill('0') << PC << " : "
+                          << instructionInfo(inst).name << " : " << dec << gas
+                          << " : -" << dec << gasCost << " : " << newMemSize
+                          << "x32"
+                          << " >";
     };
 }
 
@@ -380,10 +389,11 @@ bool Executive::go(OnOpFunc const& _onOp)
         }
         catch (VMException const& _e)
         {
-            LOG(m_detailsLogger) << "Safe VM Exception. " << diagnostic_information(_e);
-            m_gas = 0;
-            m_excepted = toTransactionException(_e);
-            revert();
+          BLOG(m_detailsLogger) << "Safe VM Exception. "
+                                << diagnostic_information(_e);
+          m_gas = 0;
+          m_excepted = toTransactionException(_e);
+          revert();
         }
         catch (InternalVMError const& _e)
         {

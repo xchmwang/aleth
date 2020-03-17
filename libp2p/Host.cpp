@@ -101,8 +101,8 @@ Host::Host(
     m_capabilityHost(createCapabilityHost(*this)),
     m_lastPeerLogMessage(chrono::steady_clock::time_point::min())
 {
-    LOG(m_infoLogger) << "Id: " << id();
-    LOG(m_infoLogger) << "ENR: " << m_restoredENR;
+  BLOG(m_infoLogger) << "Id: " << id();
+  BLOG(m_infoLogger) << "ENR: " << m_restoredENR;
 }
 
 Host::Host(string const& _clientVersion, NetworkConfig const& _n, bytesConstRef _restoreNetwork)
@@ -126,7 +126,7 @@ void Host::start()
     startWorking();
     while (isWorking() && !haveNetwork())
         this_thread::sleep_for(chrono::milliseconds(10));
-    
+
     // network start failed!
     if (isWorking())
         return;
@@ -173,13 +173,15 @@ void Host::scheduleCapabilityWorkLoop(CapabilityFace& _cap, shared_ptr<ba::stead
     _timer->async_wait([this, _timer, &_cap](boost::system::error_code _ec) {
         if (_timer->expiry() == c_steadyClockMin || _ec == boost::asio::error::operation_aborted)
         {
-            LOG(m_logger) << "Timer was probably cancelled for capability: " << _cap.descriptor();
-            return;
+          BLOG(m_logger) << "Timer was probably cancelled for capability: "
+                         << _cap.descriptor();
+          return;
         }
         else if (_ec)
         {
-            LOG(m_logger) << "Timer error detected for capability: " << _cap.descriptor();
-            return;
+          BLOG(m_logger) << "Timer error detected for capability: "
+                         << _cap.descriptor();
+          return;
         }
 
         _cap.doBackgroundWork();
@@ -243,7 +245,7 @@ void Host::doneWorking()
             break;
         m_ioContext.poll();
     }
-    
+
     // disconnect peers
     for (unsigned n = 0;; n = 0)
     {
@@ -346,7 +348,7 @@ void Host::startPeerSession(Public const& _id, RLP const& _hello,
         session->disconnect(UnexpectedIdentity);
         return;
     }
-    
+
     {
         RecursiveGuard l(x_sessions);
         if (m_sessions.count(_id) && !!m_sessions[_id].lock())
@@ -358,7 +360,7 @@ void Host::startPeerSession(Public const& _id, RLP const& _hello,
                     session->disconnect(DuplicatePeer);
                     return;
                 }
-        
+
         if (!peerSlotsAvailable())
         {
             cnetdetails << "Too many peers, can't connect. peer count: " << peerCount()
@@ -392,8 +394,8 @@ void Host::startPeerSession(Public const& _id, RLP const& _hello,
         session->start();
     }
 
-    LOG(m_logger) << "Peer connection successfully established with " << _id << "@"
-                  << _s->remoteEndpoint();
+    BLOG(m_logger) << "Peer connection successfully established with " << _id
+                   << "@" << _s->remoteEndpoint();
 }
 
 /// Get session by id
@@ -421,34 +423,30 @@ void Host::onNodeTableEvent(NodeID const& _n, NodeTableEventType const& _e)
 {
     if (_e == NodeEntryAdded)
     {
-        LOG(m_logger) << "p2p.host.nodeTable.events.nodeEntryAdded " << _n;
-        if (Node n = nodeFromNodeTable(_n))
-        {
-            shared_ptr<Peer> p;
-            DEV_RECURSIVE_GUARDED(x_sessions)
-            {
-                if (m_peers.count(_n))
-                {
-                    p = m_peers[_n];
-                    p->endpoint = n.endpoint;
-                }
-                else
-                {
-                    p = make_shared<Peer>(n);
-                    m_peers[_n] = p;
-                    LOG(m_logger) << "p2p.host.peers.events.peerAdded " << _n << " " << p->endpoint;
-                }
-            }
-            if (peerSlotsAvailable(Egress))
-                connect(p);
+      BLOG(m_logger) << "p2p.host.nodeTable.events.nodeEntryAdded " << _n;
+      if (Node n = nodeFromNodeTable(_n)) {
+        shared_ptr<Peer> p;
+        DEV_RECURSIVE_GUARDED(x_sessions) {
+          if (m_peers.count(_n)) {
+            p = m_peers[_n];
+            p->endpoint = n.endpoint;
+          } else {
+            p = make_shared<Peer>(n);
+            m_peers[_n] = p;
+            BLOG(m_logger) << "p2p.host.peers.events.peerAdded " << _n << " "
+                           << p->endpoint;
+          }
+        }
+        if (peerSlotsAvailable(Egress))
+          connect(p);
         }
     }
     else if (_e == NodeEntryDropped)
     {
-        LOG(m_logger) << "p2p.host.nodeTable.events.NodeEntryDropped " << _n;
-        RecursiveGuard l(x_sessions);
-        if (m_peers.count(_n) && m_peers[_n]->peerType == PeerType::Optional)
-            m_peers.erase(_n);
+      BLOG(m_logger) << "p2p.host.nodeTable.events.NodeEntryDropped " << _n;
+      RecursiveGuard l(x_sessions);
+      if (m_peers.count(_n) && m_peers[_n]->peerType == PeerType::Optional)
+        m_peers.erase(_n);
     }
 }
 
@@ -477,10 +475,10 @@ bi::tcp::endpoint Host::determinePublic() const
                      bi::address() :
                      bi::make_address(m_netConfig.publicIPAddress);
     auto pset = !paddr.is_unspecified();
-    
+
     bool listenIsPublic = lset && isPublicAddress(laddr);
     bool publicIsHost = !lset && pset && ifAddresses.count(paddr);
-    
+
     bi::tcp::endpoint ep(bi::address(), m_listenPort);
     if (m_netConfig.traverseNAT && listenIsPublic)
     {
@@ -496,7 +494,7 @@ bi::tcp::endpoint Host::determinePublic() const
     {
         bi::address natIFAddr;
         ep = Network::traverseNAT(lset && ifAddresses.count(laddr) ? set<bi::address>({laddr}) : ifAddresses, m_listenPort, natIFAddr);
-        
+
         if (lset && natIFAddr != laddr)
             // if listen address is set, Host will use it, even if upnp returns different
             cwarn << "Listen address " << laddr << " differs from local address " << natIFAddr
@@ -528,7 +526,7 @@ ENR Host::updateENR(
 
     ENR const newENR = IdentitySchemeV4::updateENR(
         _restoredENR, m_alias.secret(), address, _listenPort, _listenPort);
-    LOG(m_infoLogger) << "ENR updated: " << newENR;
+    BLOG(m_infoLogger) << "ENR updated: " << newENR;
 
     return newENR;
 }
@@ -557,7 +555,7 @@ void Host::runAcceptor()
                     runAcceptor();
                 return;
             }
-            
+
             bool success = false;
             try
             {
@@ -730,7 +728,7 @@ void Host::connect(shared_ptr<Peer> const& _p)
     m_pendingPeerConns.insert(nptr);
 
     _p->m_lastAttempted = chrono::system_clock::now();
-    
+
     bi::tcp::endpoint ep(_p->endpoint);
     cnetdetails << "Attempting connection to " << _p->id << "@" << ep << " from " << id();
     auto socket = make_shared<RLPXSocket>(bi::tcp::socket{m_ioContext});
@@ -738,7 +736,7 @@ void Host::connect(shared_ptr<Peer> const& _p)
     {
         _p->m_lastAttempted = chrono::system_clock::now();
         _p->m_failedAttempts++;
-        
+
         if (ec)
         {
             cnetdetails << "Connection refused to node " << _p->id << "@" << ep << " ("
@@ -757,7 +755,7 @@ void Host::connect(shared_ptr<Peer> const& _p)
 
             handshake->start();
         }
-        
+
         m_pendingPeerConns.erase(nptr);
     });
 }
@@ -840,7 +838,7 @@ void Host::run(boost::system::error_code const& _ec)
     for (auto p: toConnect)
         if (p->peerType == PeerType::Required && reqConn++ < m_idealPeerCount)
             connect(p);
-    
+
     if (!m_netConfig.pin)
     {
         unsigned const maxSlots = m_idealPeerCount + reqConn;
@@ -880,7 +878,8 @@ void Host::startedWorking()
             runAcceptor();
         }
         else
-            LOG(m_logger) << "p2p.start.notice id: " << id() << " TCP Listen port is invalid or unavailable.";
+          BLOG(m_logger) << "p2p.start.notice id: " << id()
+                         << " TCP Listen port is invalid or unavailable.";
     }
     else
         m_listenPort = m_netConfig.listenPort;
@@ -898,16 +897,16 @@ void Host::startedWorking()
         nodeTable->setEventHandler(new HostNodeTableHandler(*this));
     DEV_GUARDED(x_nodeTable)
         m_nodeTable = nodeTable;
-    
+
     m_run = true;
     restoreNetwork(&m_restoreNetwork);
     if (haveCapabilities())
     {
-        LOG(m_logger) << "devp2p started. Node id: " << id();
-        run(boost::system::error_code());
+      BLOG(m_logger) << "devp2p started. Node id: " << id();
+      run(boost::system::error_code());
     }
     else
-        LOG(m_logger) << "No registered capabilities, devp2p not started.";
+      BLOG(m_logger) << "No registered capabilities, devp2p not started.";
 }
 
 void Host::doWork()
@@ -952,11 +951,11 @@ void Host::logActivePeers()
     if (!m_run || chrono::steady_clock::now() - c_logActivePeersInterval < m_lastPeerLogMessage)
         return;
 
-    LOG(m_infoLogger) << "Active peer count: " << peerCount();
+    BLOG(m_infoLogger) << "Active peer count: " << peerCount();
     if (m_netConfig.discovery)
-        LOG(m_infoLogger) << "Looking for peers...";
+      BLOG(m_infoLogger) << "Looking for peers...";
 
-    LOG(m_logger) << "Peers: " << peerSessionInfos();
+    BLOG(m_logger) << "Peers: " << peerSessionInfos();
     m_lastPeerLogMessage = chrono::steady_clock::now();
 }
 
@@ -1048,7 +1047,7 @@ void Host::restoreNetwork(bytesConstRef _b)
 {
     if (!_b.size())
         return;
-    
+
     // nodes can only be added if network is added
     if (!isStarted())
         BOOST_THROW_EXCEPTION(NetworkStartRequired());

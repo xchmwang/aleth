@@ -32,7 +32,8 @@ void SnapshotImporter::import(SnapshotStorageFace const& _snapshotStorage, h256 
 
     u256 const blockNumber = manifest[4].toInt<u256>(RLP::VeryStrict);
     h256 const blockHash = manifest[5].toHash<h256>(RLP::VeryStrict);
-    LOG(m_logger) << "Importing snapshot for block " << blockNumber << " block hash " << blockHash;
+    BLOG(m_logger) << "Importing snapshot for block " << blockNumber
+                   << " block hash " << blockHash;
 
     h256s const stateChunkHashes = manifest[1].toVector<h256>(RLP::VeryStrict);
     h256 const stateRoot = manifest[3].toHash<h256>(RLP::VeryStrict);
@@ -120,16 +121,20 @@ void SnapshotImporter::importStateChunks(SnapshotStorageFace const& _snapshotSto
         m_stateImporter.commitStateDatabase();
 
         ++chunksImported;
-        LOG(m_logger) << "Imported chunk " << chunksImported << " (" << accounts.itemCount()
-                      << " account records) Total account records imported: " << accountsImported;
-        LOG(m_logger) << stateChunkCount - chunksImported << " chunks left to import";
+        BLOG(m_logger) << "Imported chunk " << chunksImported << " ("
+                       << accounts.itemCount()
+                       << " account records) Total account records imported: "
+                       << accountsImported;
+        BLOG(m_logger) << stateChunkCount - chunksImported
+                       << " chunks left to import";
     }
 
     // check root
-    LOG(m_logger) << "Chunks imported: " << chunksImported;
-    LOG(m_logger) << "Account records imported: " << accountsImported;
-    LOG(m_logger) << "Reconstructed state root: " << m_stateImporter.stateRoot();
-    LOG(m_logger) << "Manifest state root:      " << _stateRoot;
+    BLOG(m_logger) << "Chunks imported: " << chunksImported;
+    BLOG(m_logger) << "Account records imported: " << accountsImported;
+    BLOG(m_logger) << "Reconstructed state root: "
+                   << m_stateImporter.stateRoot();
+    BLOG(m_logger) << "Manifest state root:      " << _stateRoot;
     if (m_stateImporter.stateRoot() != _stateRoot)
         BOOST_THROW_EXCEPTION(StateTrieReconstructionFailed());
 }
@@ -153,8 +158,9 @@ void SnapshotImporter::importBlockChunks(SnapshotStorageFace const& _snapshotSto
         if (!firstBlockNumber || !firstBlockHash || !firstBlockDifficulty)
             BOOST_THROW_EXCEPTION(InvalidBlockChunkData());
 
-        LOG(m_logger) << "chunk first block " << firstBlockNumber << " first block hash "
-                      << firstBlockHash << " difficulty " << firstBlockDifficulty;
+        BLOG(m_logger) << "chunk first block " << firstBlockNumber
+                       << " first block hash " << firstBlockHash
+                       << " difficulty " << firstBlockDifficulty;
 
         size_t const itemCount = blockChunk.itemCount();
         h256 parentHash = firstBlockHash;
@@ -202,13 +208,16 @@ void SnapshotImporter::importBlockChunks(SnapshotStorageFace const& _snapshotSto
             parentHash = header.hash();
         }
 
-        LOG(m_logger) << "Imported chunk " << *chunk << " (" << itemCount - 3 << " blocks)";
-        LOG(m_logger) << blockChunkCount - (++blockChunksImported) << " chunks left to import";
+        BLOG(m_logger) << "Imported chunk " << *chunk << " (" << itemCount - 3
+                       << " blocks)";
+        BLOG(m_logger) << blockChunkCount - (++blockChunksImported)
+                       << " chunks left to import";
 
         if (chunk == _blockChunkHashes.rbegin())
         {
-            LOG(m_logger) << "Setting chain start block: " << firstBlockNumber + 1;
-            m_blockChainImporter.setChainStartBlockNumber(firstBlockNumber + 1);
+          BLOG(m_logger) << "Setting chain start block: "
+                         << firstBlockNumber + 1;
+          m_blockChainImporter.setChainStartBlockNumber(firstBlockNumber + 1);
         }
     }
 }

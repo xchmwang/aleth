@@ -12,9 +12,10 @@ namespace p2p
 namespace
 {
 // global thread-safe logger for static methods
-BOOST_LOG_INLINE_GLOBAL_LOGGER_CTOR_ARGS(g_discoveryWarnLogger,
-    boost::log::sources::severity_channel_logger_mt<>,
-    (boost::log::keywords::severity = 0)(boost::log::keywords::channel = "discov"))
+BOOST_LOG_INLINE_GLOBAL_LOGGER_CTOR_ARGS(
+    g_discoveryWarnLogger, boost::log::sources::severity_channel_logger_mt<>,
+    (boost::log::keywords::severity = 0)(
+        boost::log::keywords::channel = "discov"))
 
 // Cadence at which we timeout sent pings and evict unresponsive nodes
 constexpr chrono::milliseconds c_handleTimeoutsIntervalMs{5000};
@@ -85,23 +86,23 @@ void NodeTable::processEvents()
 
 bool NodeTable::addNode(Node const& _node)
 {
-    LOG(m_logger) << "Adding node " << _node;
+  BLOG(m_logger) << "Adding node " << _node;
 
-    if (!isValidNode(_node))
-        return false;
+  if (!isValidNode(_node))
+    return false;
 
-    bool needToPing = false;
-    DEV_GUARDED(x_nodes)
-    {
-        auto const it = m_allNodes.find(_node.id);
-        needToPing = (it == m_allNodes.end() || it->second->endpoint() != _node.endpoint ||
-                      !it->second->hasValidEndpointProof());
+  bool needToPing = false;
+  DEV_GUARDED(x_nodes) {
+    auto const it = m_allNodes.find(_node.id);
+    needToPing =
+        (it == m_allNodes.end() || it->second->endpoint() != _node.endpoint ||
+         !it->second->hasValidEndpointProof());
     }
 
     if (needToPing)
     {
-        LOG(m_logger) << "Pending " << _node;
-        schedulePing(_node);
+      BLOG(m_logger) << "Pending " << _node;
+      schedulePing(_node);
     }
 
     return true;
@@ -110,15 +111,14 @@ bool NodeTable::addNode(Node const& _node)
 bool NodeTable::addKnownNode(
     Node const& _node, uint32_t _lastPongReceivedTime, uint32_t _lastPongSentTime)
 {
-    LOG(m_logger) << "Adding known node " << _node;
+  BLOG(m_logger) << "Adding known node " << _node;
 
-    if (!isValidNode(_node))
-        return false;
+  if (!isValidNode(_node))
+    return false;
 
-    if (nodeEntry(_node.id))
-    {
-        LOG(m_logger) << "Node " << _node << " is already in the node table";
-        return true;
+  if (nodeEntry(_node.id)) {
+    BLOG(m_logger) << "Node " << _node << " is already in the node table";
+    return true;
     }
 
     auto entry = make_shared<NodeEntry>(
@@ -126,13 +126,13 @@ bool NodeTable::addKnownNode(
 
     if (entry->hasValidEndpointProof())
     {
-        LOG(m_logger) << "Known " << _node;
-        noteActiveNode(move(entry));
+      BLOG(m_logger) << "Known " << _node;
+      noteActiveNode(move(entry));
     }
     else
     {
-        LOG(m_logger) << "Pending " << _node;
-        schedulePing(_node);
+      BLOG(m_logger) << "Pending " << _node;
+      schedulePing(_node);
     }
 
     return true;
@@ -142,22 +142,24 @@ bool NodeTable::isValidNode(Node const& _node) const
 {
     if (!_node.endpoint || !_node.id)
     {
-        LOG(m_logger) << "Supplied node " << _node
-                      << " has an invalid endpoint or id. Skipping adding node to node table.";
-        return false;
+      BLOG(m_logger) << "Supplied node " << _node << " has an invalid endpoint "
+                                                     "or id. Skipping adding "
+                                                     "node to node table.";
+      return false;
     }
 
     if (!isAllowedEndpoint(_node.endpoint))
     {
-        LOG(m_logger) << "Supplied node" << _node
-                      << " doesn't have an allowed endpoint. Skipping adding node to node table";
-        return false;
+      BLOG(m_logger) << "Supplied node" << _node << " doesn't have an allowed "
+                                                    "endpoint. Skipping adding "
+                                                    "node to node table";
+      return false;
     }
 
     if (m_hostNodeID == _node.id)
     {
-        LOG(m_logger) << "Skip adding self to node table (" << _node.id << ")";
-        return false;
+      BLOG(m_logger) << "Skip adding self to node table (" << _node.id << ")";
+      return false;
     }
 
     return true;
@@ -225,17 +227,18 @@ void NodeTable::doDiscoveryRound(
             // This prevents being considered invalid node and FindNode being ignored.
             if (!nodeEntry->hasValidEndpointProof())
             {
-                LOG(m_logger) << "Node " << nodeEntry->node << " endpoint proof expired.";
-                ping(nodeEntry->node);
-                continue;
+              BLOG(m_logger) << "Node " << nodeEntry->node
+                             << " endpoint proof expired.";
+              ping(nodeEntry->node);
+              continue;
             }
 
             FindNode p(nodeEntry->endpoint(), _node);
             p.expiration = nextRequestExpirationTime();
             p.sign(m_secret);
             m_sentFindNodes.emplace_back(nodeEntry->id(), chrono::steady_clock::now());
-            LOG(m_logger) << p.typeName() << " to " << nodeEntry->node << " (target: " << _node
-                          << ")";
+            BLOG(m_logger) << p.typeName() << " to " << nodeEntry->node
+                           << " (target: " << _node << ")";
             m_socket->send(p);
 
             _tried->emplace(nodeEntry);
@@ -246,9 +249,9 @@ void NodeTable::doDiscoveryRound(
 
     if (_round == s_maxSteps || newTriedCount == 0)
     {
-        LOG(m_logger) << "Terminating discover after " << _round << " rounds.";
-        doDiscovery();
-        return;
+      BLOG(m_logger) << "Terminating discover after " << _round << " rounds.";
+      doDiscovery();
+      return;
     }
 
     m_discoveryTimer->expires_after(c_discoveryRoundIntervalMs);
@@ -310,15 +313,16 @@ void NodeTable::ping(Node const& _node, shared_ptr<NodeEntry> _replacementNodeEn
     // Don't send Ping if one is already sent
     if (m_sentPings.find(_node.endpoint) != m_sentPings.end())
     {
-        LOG(m_logger) << "Ignoring request to ping " << _node << ", because it's already pinged";
-        return;
+      BLOG(m_logger) << "Ignoring request to ping " << _node
+                     << ", because it's already pinged";
+      return;
     }
 
     PingNode p{m_hostNodeEndpoint, _node.endpoint};
     p.expiration = nextRequestExpirationTime();
     p.seq = m_hostENR.sequenceNumber();
     auto const pingHash = p.sign(m_secret);
-    LOG(m_logger) << p.typeName() << " to " << _node;
+    BLOG(m_logger) << p.typeName() << " to " << _node;
     m_socket->send(p);
 
     NodeValidation const validation{_node.id, _node.endpoint.tcpPort(), chrono::steady_clock::now(),
@@ -336,7 +340,7 @@ void NodeTable::evict(NodeEntry const& _leastSeen, shared_ptr<NodeEntry> _replac
     if (!m_socket->isOpen())
         return;
 
-    LOG(m_logger) << "Evicting node " << _leastSeen.node;
+    BLOG(m_logger) << "Evicting node " << _leastSeen.node;
     ping(_leastSeen.node, move(_replacement));
 
     if (m_nodeEventHandler)
@@ -349,20 +353,21 @@ void NodeTable::noteActiveNode(shared_ptr<NodeEntry> _nodeEntry)
 
     if (_nodeEntry->id() == m_hostNodeID)
     {
-        LOG(m_logger) << "Skipping making self active.";
-        return;
+      BLOG(m_logger) << "Skipping making self active.";
+      return;
     }
     if (!isAllowedEndpoint(_nodeEntry->endpoint()))
     {
-        LOG(m_logger) << "Skipping making node with unallowed endpoint active. Node "
-                      << _nodeEntry->node;
-        return;
+      BLOG(m_logger)
+          << "Skipping making node with unallowed endpoint active. Node "
+          << _nodeEntry->node;
+      return;
     }
 
     if (!_nodeEntry->hasValidEndpointProof())
         return;
 
-    LOG(m_logger) << "Active node " << _nodeEntry->node;
+    BLOG(m_logger) << "Active node " << _nodeEntry->node;
 
     shared_ptr<NodeEntry> nodeToEvict;
     {
@@ -424,7 +429,7 @@ void NodeTable::dropNode(shared_ptr<NodeEntry> _n)
     DEV_GUARDED(x_nodes) { m_allNodes.erase(_n->id()); }
 
     // notify host
-    LOG(m_logger) << "p2p.nodes.drop " << _n->id();
+    BLOG(m_logger) << "p2p.nodes.drop " << _n->id();
     if (m_nodeEventHandler)
         m_nodeEventHandler->appendEvent(_n->id(), NodeEntryDropped);
 }
@@ -443,12 +448,13 @@ void NodeTable::onPacketReceived(
             return;
         if (packet->isExpired())
         {
-            LOG(m_logger) << "Expired " << packet->typeName() << " from " << packet->sourceid << "@"
-                          << _from;
-            return;
+          BLOG(m_logger) << "Expired " << packet->typeName() << " from "
+                         << packet->sourceid << "@" << _from;
+          return;
         }
 
-        LOG(m_logger) << packet->typeName() << " from " << packet->sourceid << "@" << _from;
+        BLOG(m_logger) << packet->typeName() << " from " << packet->sourceid
+                       << "@" << _from;
 
         shared_ptr<NodeEntry> sourceNodeEntry;
         switch (packet->packetType())
@@ -483,13 +489,14 @@ void NodeTable::onPacketReceived(
     }
     catch (exception const& _e)
     {
-        LOG(m_logger) << "Exception processing message from " << _from.address().to_string() << ":"
-                      << _from.port() << ": " << _e.what();
+      BLOG(m_logger) << "Exception processing message from "
+                     << _from.address().to_string() << ":" << _from.port()
+                     << ": " << _e.what();
     }
     catch (...)
     {
-        LOG(m_logger) << "Exception processing message from " << _from.address().to_string() << ":"
-                      << _from.port();
+      BLOG(m_logger) << "Exception processing message from "
+                     << _from.address().to_string() << ":" << _from.port();
     }
 }
 
@@ -501,27 +508,28 @@ shared_ptr<NodeEntry> NodeTable::handlePong(
     auto const sentPing = m_sentPings.find(_from);
     if (sentPing == m_sentPings.end())
     {
-        LOG(m_logger) << "Unexpected PONG from " << _from.address().to_string() << ":"
-                      << _from.port();
-        return {};
+      BLOG(m_logger) << "Unexpected PONG from " << _from.address().to_string()
+                     << ":" << _from.port();
+      return {};
     }
 
     auto const& pong = dynamic_cast<Pong const&>(_packet);
     auto const& nodeValidation = sentPing->second;
     if (pong.echo != nodeValidation.pingHash)
     {
-        LOG(m_logger) << "Invalid PONG from " << _from.address().to_string() << ":" << _from.port();
-        return {};
+      BLOG(m_logger) << "Invalid PONG from " << _from.address().to_string()
+                     << ":" << _from.port();
+      return {};
     }
 
     // in case the node answers with new NodeID, drop the record with the old NodeID
     auto const& sourceId = pong.sourceid;
     if (sourceId != nodeValidation.nodeID)
     {
-        LOG(m_logger) << "Node " << _from << " changed public key from " << nodeValidation.nodeID
-                      << " to " << sourceId;
-        if (auto node = nodeEntry(nodeValidation.nodeID))
-            dropNode(move(node));
+      BLOG(m_logger) << "Node " << _from << " changed public key from "
+                     << nodeValidation.nodeID << " to " << sourceId;
+      if (auto node = nodeEntry(nodeValidation.nodeID))
+        dropNode(move(node));
     }
 
     // create or update nodeEntry with new Pong received time
@@ -565,7 +573,7 @@ shared_ptr<NodeEntry> NodeTable::handlePong(
                         m_hostNodeEndpoint.tcpPort(), m_hostNodeEndpoint.udpPort());
             }
             clog(VerbosityInfo, "net") << "ENR updated: " << m_hostENR;
-        }        
+        }
     }
 
     return sourceNodeEntry;
@@ -577,15 +585,16 @@ shared_ptr<NodeEntry> NodeTable::handleNeighbours(
     shared_ptr<NodeEntry> sourceNodeEntry = nodeEntry(_packet.sourceid);
     if (!sourceNodeEntry)
     {
-        LOG(m_logger) << "Source node (" << _packet.sourceid << "@" << _from
-                      << ") not found in node table. Ignoring Neighbours packet.";
-        return {};
+      BLOG(m_logger)
+          << "Source node (" << _packet.sourceid << "@" << _from
+          << ") not found in node table. Ignoring Neighbours packet.";
+      return {};
     }
     if (sourceNodeEntry->endpoint() != _from)
     {
-        LOG(m_logger) << "Neighbours packet from unexpected endpoint " << _from << " instead of "
-                      << sourceNodeEntry->endpoint();
-        return {};
+      BLOG(m_logger) << "Neighbours packet from unexpected endpoint " << _from
+                     << " instead of " << sourceNodeEntry->endpoint();
+      return {};
     }
 
     auto const& in = dynamic_cast<Neighbours const&>(_packet);
@@ -601,9 +610,9 @@ shared_ptr<NodeEntry> NodeTable::handleNeighbours(
     });
     if (!expected)
     {
-        LOG(m_logger) << "Dropping unsolicited neighbours packet from " << _packet.sourceid << "@"
-                      << _from.address();
-        return sourceNodeEntry;
+      BLOG(m_logger) << "Dropping unsolicited neighbours packet from "
+                     << _packet.sourceid << "@" << _from.address();
+      return sourceNodeEntry;
     }
 
     for (auto const& n : in.neighbours)
@@ -618,25 +627,27 @@ std::shared_ptr<NodeEntry> NodeTable::handleFindNode(
     std::shared_ptr<NodeEntry> sourceNodeEntry = nodeEntry(_packet.sourceid);
     if (!sourceNodeEntry)
     {
-        LOG(m_logger) << "Source node (" << _packet.sourceid << "@" << _from
-                      << ") not found in node table. Ignoring FindNode request.";
-        return {};
+      BLOG(m_logger) << "Source node (" << _packet.sourceid << "@" << _from
+                     << ") not found in node table. Ignoring FindNode request.";
+      return {};
     }
     if (sourceNodeEntry->endpoint() != _from)
     {
-        LOG(m_logger) << "FindNode packet from unexpected endpoint " << _from << " instead of "
-                      << sourceNodeEntry->endpoint();
-        return {};
+      BLOG(m_logger) << "FindNode packet from unexpected endpoint " << _from
+                     << " instead of " << sourceNodeEntry->endpoint();
+      return {};
     }
     if (!sourceNodeEntry->lastPongReceivedTime)
     {
-        LOG(m_logger) << "Unexpected FindNode packet! Endpoint proof hasn't been performed yet.";
-        return {};
+      BLOG(m_logger) << "Unexpected FindNode packet! Endpoint proof hasn't "
+                        "been performed yet.";
+      return {};
     }
     if (!sourceNodeEntry->hasValidEndpointProof())
     {
-        LOG(m_logger) << "Unexpected FindNode packet! Endpoint proof has expired.";
-        return {};
+      BLOG(m_logger)
+          << "Unexpected FindNode packet! Endpoint proof has expired.";
+      return {};
     }
 
     auto const& in = dynamic_cast<FindNode const&>(_packet);
@@ -646,7 +657,8 @@ std::shared_ptr<NodeEntry> NodeTable::handleFindNode(
     {
         Neighbours out(_from, nearest, offset, nlimit);
         out.expiration = nextRequestExpirationTime();
-        LOG(m_logger) << out.typeName() << " to " << in.sourceid << "@" << _from;
+        BLOG(m_logger) << out.typeName() << " to " << in.sourceid << "@"
+                       << _from;
         out.sign(m_secret);
         if (out.data.size() > 1280)
             cnetlog << "Sending truncated datagram, size: " << out.data.size();
@@ -667,7 +679,7 @@ std::shared_ptr<NodeEntry> NodeTable::handlePingNode(
 
     // Send PONG response.
     Pong p(sourceEndpoint);
-    LOG(m_logger) << p.typeName() << " to " << in.sourceid << "@" << _from;
+    BLOG(m_logger) << p.typeName() << " to " << in.sourceid << "@" << _from;
     p.expiration = nextRequestExpirationTime();
     p.echo = in.echo;
     p.seq = m_hostENR.sequenceNumber();
@@ -691,31 +703,35 @@ std::shared_ptr<NodeEntry> NodeTable::handleENRRequest(
     std::shared_ptr<NodeEntry> sourceNodeEntry = nodeEntry(_packet.sourceid);
     if (!sourceNodeEntry)
     {
-        LOG(m_logger) << "Source node (" << _packet.sourceid << "@" << _from
-                      << ") not found in node table. Ignoring ENRRequest request.";
-        return {};
+      BLOG(m_logger)
+          << "Source node (" << _packet.sourceid << "@" << _from
+          << ") not found in node table. Ignoring ENRRequest request.";
+      return {};
     }
     if (sourceNodeEntry->endpoint() != _from)
     {
-        LOG(m_logger) << "ENRRequest packet from unexpected endpoint " << _from << " instead of "
-                      << sourceNodeEntry->endpoint();
-        return {};
+      BLOG(m_logger) << "ENRRequest packet from unexpected endpoint " << _from
+                     << " instead of " << sourceNodeEntry->endpoint();
+      return {};
     }
     if (!sourceNodeEntry->lastPongReceivedTime)
     {
-        LOG(m_logger) << "Unexpected ENRRequest packet! Endpoint proof hasn't been performed yet.";
-        return {};
+      BLOG(m_logger) << "Unexpected ENRRequest packet! Endpoint proof hasn't "
+                        "been performed yet.";
+      return {};
     }
     if (!sourceNodeEntry->hasValidEndpointProof())
     {
-        LOG(m_logger) << "Unexpected ENRRequest packet! Endpoint proof has expired.";
-        return {};
+      BLOG(m_logger)
+          << "Unexpected ENRRequest packet! Endpoint proof has expired.";
+      return {};
     }
 
     auto const& in = dynamic_cast<ENRRequest const&>(_packet);
 
     ENRResponse response{_from, m_hostENR};
-    LOG(m_logger) << response.typeName() << " to " << in.sourceid << "@" << _from;
+    BLOG(m_logger) << response.typeName() << " to " << in.sourceid << "@"
+                   << _from;
     response.expiration = nextRequestExpirationTime();
     response.echo = in.echo;
     response.sign(m_secret);
@@ -730,19 +746,20 @@ std::shared_ptr<NodeEntry> NodeTable::handleENRResponse(
     std::shared_ptr<NodeEntry> sourceNodeEntry = nodeEntry(_packet.sourceid);
     if (!sourceNodeEntry)
     {
-        LOG(m_logger) << "Source node (" << _packet.sourceid << "@" << _from
-                      << ") not found in node table. Ignoring ENRResponse packet.";
-        return {};
+      BLOG(m_logger)
+          << "Source node (" << _packet.sourceid << "@" << _from
+          << ") not found in node table. Ignoring ENRResponse packet.";
+      return {};
     }
     if (sourceNodeEntry->endpoint() != _from)
     {
-        LOG(m_logger) << "ENRResponse packet from unexpected endpoint " << _from << " instead of "
-                      << sourceNodeEntry->endpoint();
-        return {};
+      BLOG(m_logger) << "ENRResponse packet from unexpected endpoint " << _from
+                     << " instead of " << sourceNodeEntry->endpoint();
+      return {};
     }
 
     auto const& in = dynamic_cast<ENRResponse const&>(_packet);
-    LOG(m_logger) << "Received ENR: " << *in.enr;
+    BLOG(m_logger) << "Received ENR: " << *in.enr;
 
     return sourceNodeEntry;
 }
@@ -771,7 +788,9 @@ void NodeTable::doDiscovery()
         NodeID randNodeId;
         crypto::Nonce::get().ref().copyTo(randNodeId.ref().cropped(0, h256::size));
         crypto::Nonce::get().ref().copyTo(randNodeId.ref().cropped(h256::size, h256::size));
-        LOG(m_logger) << "Starting discovery algorithm run for random node id: " << randNodeId;
+        BLOG(m_logger)
+            << "Starting discovery algorithm run for random node id: "
+            << randNodeId;
         doDiscoveryRound(randNodeId, 0 /* round */, make_shared<set<shared_ptr<NodeEntry>>>());
     });
 }
@@ -854,9 +873,10 @@ unique_ptr<DiscoveryDatagram> DiscoveryDatagram::interpretUDP(bi::udp::endpoint 
     // h256 + Signature + type + RLP (smallest possible packet is empty neighbours packet which is 3 bytes)
     if (_packet.size() < h256::size + Signature::size + 1 + 3)
     {
-        LOG(g_discoveryWarnLogger::get()) << "Invalid packet (too small) from "
-                                          << _from.address().to_string() << ":" << _from.port();
-        return decoded;
+      BLOG(g_discoveryWarnLogger::get()) << "Invalid packet (too small) from "
+                                         << _from.address().to_string() << ":"
+                                         << _from.port();
+      return decoded;
     }
     bytesConstRef hashedBytes(_packet.cropped(h256::size, _packet.size() - h256::size));
     bytesConstRef signedBytes(hashedBytes.cropped(Signature::size, hashedBytes.size() - Signature::size));
@@ -866,16 +886,18 @@ unique_ptr<DiscoveryDatagram> DiscoveryDatagram::interpretUDP(bi::udp::endpoint 
     h256 echo(sha3(hashedBytes));
     if (!_packet.cropped(0, h256::size).contentsEqual(echo.asBytes()))
     {
-        LOG(g_discoveryWarnLogger::get()) << "Invalid packet (bad hash) from "
-                                          << _from.address().to_string() << ":" << _from.port();
-        return decoded;
+      BLOG(g_discoveryWarnLogger::get()) << "Invalid packet (bad hash) from "
+                                         << _from.address().to_string() << ":"
+                                         << _from.port();
+      return decoded;
     }
     Public sourceid(dev::recover(*(Signature const*)signatureBytes.data(), sha3(signedBytes)));
     if (!sourceid)
     {
-        LOG(g_discoveryWarnLogger::get()) << "Invalid packet (bad signature) from "
-                                          << _from.address().to_string() << ":" << _from.port();
-        return decoded;
+      BLOG(g_discoveryWarnLogger::get())
+          << "Invalid packet (bad signature) from "
+          << _from.address().to_string() << ":" << _from.port();
+      return decoded;
     }
     switch (signedBytes[0])
     {
@@ -898,9 +920,10 @@ unique_ptr<DiscoveryDatagram> DiscoveryDatagram::interpretUDP(bi::udp::endpoint 
         decoded.reset(new ENRResponse(_from, sourceid, echo));
         break;
     default:
-        LOG(g_discoveryWarnLogger::get()) << "Invalid packet (unknown packet type) from "
-                                          << _from.address().to_string() << ":" << _from.port();
-        return decoded;
+      BLOG(g_discoveryWarnLogger::get())
+          << "Invalid packet (unknown packet type) from "
+          << _from.address().to_string() << ":" << _from.port();
+      return decoded;
     }
     decoded->interpretRLP(bodyBytes);
     return decoded;

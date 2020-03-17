@@ -220,7 +220,7 @@ void Client::startedWorking()
 {
     // Synchronise the state according to the head of the block chain.
     // TODO: currently it contains keys for *all* blocks. Make it remove old ones.
-    LOG(m_loggerDetail) << "startedWorking()";
+    BLOG(m_loggerDetail) << "startedWorking()";
 
     DEV_WRITE_GUARDED(x_preSeal)
         m_preSeal.sync(bc());
@@ -391,8 +391,9 @@ void Client::syncBlockQueue()
 
     if (count)
     {
-        LOG(m_logger) << count << " blocks imported in " << unsigned(elapsed * 1000) << " ms ("
-                      << (count / elapsed) << " blocks/s) in #" << bc().number();
+      BLOG(m_logger) << count << " blocks imported in "
+                     << unsigned(elapsed * 1000) << " ms (" << (count / elapsed)
+                     << " blocks/s) in #" << bc().number();
     }
 
     if (elapsed > c_targetDurationS * 1.1 && count > c_syncMinBlockCount)
@@ -457,13 +458,13 @@ void Client::onDeadBlocks(h256s const& _blocks, h256Hash& io_changed)
     // insert transactions that we are declaring the dead part of the chain
     for (auto const& h: _blocks)
     {
-        LOG(m_loggerDetail) << "Dead block: " << h;
-        for (auto const& t: bc().transactions(h))
-        {
-            LOG(m_loggerDetail) << "Resubmitting dead-block transaction "
-                                << Transaction(t, CheckTransaction::None);
-            ctrace << "Resubmitting dead-block transaction " << Transaction(t, CheckTransaction::None);
-            m_tq.import(t, IfDropped::Retry);
+      BLOG(m_loggerDetail) << "Dead block: " << h;
+      for (auto const &t : bc().transactions(h)) {
+        BLOG(m_loggerDetail) << "Resubmitting dead-block transaction "
+                             << Transaction(t, CheckTransaction::None);
+        ctrace << "Resubmitting dead-block transaction "
+               << Transaction(t, CheckTransaction::None);
+        m_tq.import(t, IfDropped::Retry);
         }
     }
 
@@ -475,7 +476,7 @@ void Client::onNewBlocks(h256s const& _blocks, h256Hash& io_changed)
 {
     // remove transactions from m_tq nicely rather than relying on out of date nonce later on.
     for (auto const& h: _blocks)
-        LOG(m_loggerDetail) << "Live block: " << h;
+      BLOG(m_loggerDetail) << "Live block: " << h;
 
     if (auto h = m_host.lock())
         h->noteNewBlocks();
@@ -518,11 +519,13 @@ void Client::restartMining()
         if (!m_postSeal.isSealed() || m_postSeal.info().hash() != newPreMine.info().parentHash())
             for (auto const& t : m_postSeal.pending())
             {
-                LOG(m_loggerDetail) << "Resubmitting post-seal transaction " << t;
-                //                      ctrace << "Resubmitting post-seal transaction " << t;
-                auto ir = m_tq.import(t, IfDropped::Retry);
-                if (ir != ImportResult::Success)
-                    onTransactionQueueReady();
+              BLOG(m_loggerDetail) << "Resubmitting post-seal transaction "
+                                   << t;
+              //                      ctrace << "Resubmitting post-seal
+              //                      transaction " << t;
+              auto ir = m_tq.import(t, IfDropped::Retry);
+              if (ir != ImportResult::Success)
+                onTransactionQueueReady();
             }
     DEV_READ_GUARDED(x_working) DEV_WRITE_GUARDED(x_postSeal)
         m_postSeal = m_working;
@@ -558,9 +561,9 @@ void Client::onChainChanged(ImportRoute const& _ir)
     goodTransactions.reserve(_ir.goodTransactions.size());
     for (auto const& t: _ir.goodTransactions)
     {
-        LOG(m_loggerDetail) << "Safely dropping transaction " << t.sha3();
-        m_tq.dropGood(t);
-        goodTransactions.push_back(t.sha3());
+      BLOG(m_loggerDetail) << "Safely dropping transaction " << t.sha3();
+      m_tq.dropGood(t);
+      goodTransactions.push_back(t.sha3());
     }
     auto h = m_host.lock();
     if (h)
@@ -579,23 +582,23 @@ bool Client::remoteActive() const
 
 void Client::onPostStateChanged()
 {
-    LOG(m_loggerDetail) << "Post state changed.";
-    m_signalled.notify_all();
-    m_remoteWorking = false;
+  BLOG(m_loggerDetail) << "Post state changed.";
+  m_signalled.notify_all();
+  m_remoteWorking = false;
 }
 
 void Client::startSealing()
 {
     if (m_wouldSeal == true)
         return;
-    LOG(m_logger) << "Mining Beneficiary: " << author();
+    BLOG(m_logger) << "Mining Beneficiary: " << author();
     if (author())
     {
         m_wouldSeal = true;
         m_signalled.notify_all();
     }
     else
-        LOG(m_logger) << "You need to set an author in order to seal!";
+      BLOG(m_logger) << "You need to set an author in order to seal!";
 }
 
 void Client::rejigSealing()
@@ -606,16 +609,17 @@ void Client::rejigSealing()
         {
             m_wouldButShouldnot = false;
 
-            LOG(m_loggerDetail) << "Rejigging seal engine...";
+            BLOG(m_loggerDetail) << "Rejigging seal engine...";
             DEV_WRITE_GUARDED(x_working)
             {
                 if (m_working.isSealed())
                 {
-                    LOG(m_logger) << "Tried to seal sealed block...";
-                    return;
+                  BLOG(m_logger) << "Tried to seal sealed block...";
+                  return;
                 }
                 // TODO is that needed? we have "Generating seal on" below
-                LOG(m_loggerDetail) << "Starting to seal block #" << m_working.info().number();
+                BLOG(m_loggerDetail) << "Starting to seal block #"
+                                     << m_working.info().number();
                 m_working.commitToSeal(bc(), m_extraData);
             }
             DEV_READ_GUARDED(x_working)
@@ -627,15 +631,17 @@ void Client::rejigSealing()
 
             if (wouldSeal())
             {
-                sealEngine()->onSealGenerated([=](bytes const& _header) {
-                    LOG(m_logger) << "Block sealed #" << BlockHeader(_header, HeaderData).number();
-                    if (this->submitSealed(_header))
-                        m_onBlockSealed(_header);
-                    else
-                        LOG(m_logger) << "Submitting block failed...";
-                });
-                ctrace << "Generating seal on " << m_sealingInfo.hash(WithoutSeal) << " #" << m_sealingInfo.number();
-                sealEngine()->generateSeal(m_sealingInfo);
+              sealEngine()->onSealGenerated([=](bytes const &_header) {
+                BLOG(m_logger) << "Block sealed #"
+                               << BlockHeader(_header, HeaderData).number();
+                if (this->submitSealed(_header))
+                  m_onBlockSealed(_header);
+                else
+                  BLOG(m_logger) << "Submitting block failed...";
+              });
+              ctrace << "Generating seal on " << m_sealingInfo.hash(WithoutSeal)
+                     << " #" << m_sealingInfo.number();
+              sealEngine()->generateSeal(m_sealingInfo);
             }
         }
         else
@@ -649,25 +655,28 @@ void Client::noteChanged(h256Hash const& _filters)
 {
     Guard l(x_filtersWatches);
     if (_filters.size())
-        LOG(m_loggerWatch) << "noteChanged: " << filtersToString(_filters);
+      BLOG(m_loggerWatch) << "noteChanged: " << filtersToString(_filters);
     // accrue all changes left in each filter into the watches.
     for (auto& w: m_watches)
         if (_filters.count(w.second.id))
         {
             if (m_filters.count(w.second.id))
             {
-                LOG(m_loggerWatch) << "!!! " << w.first << " " << w.second.id.abridged();
-                w.second.changes += m_filters.at(w.second.id).changes;
+              BLOG(m_loggerWatch) << "!!! " << w.first << " "
+                                  << w.second.id.abridged();
+              w.second.changes += m_filters.at(w.second.id).changes;
             }
             else if (m_specialFilters.count(w.second.id))
                 for (h256 const& hash: m_specialFilters.at(w.second.id))
                 {
-                    LOG(m_loggerWatch)
-                        << "!!! " << w.first << " "
-                        << (w.second.id == PendingChangedFilter ?
-                                   "pending" :
-                                   w.second.id == ChainChangedFilter ? "chain" : "???");
-                    w.second.changes.push_back(LocalisedLogEntry(SpecialLogEntry, hash));
+                  BLOG(m_loggerWatch)
+                      << "!!! " << w.first << " "
+                      << (w.second.id == PendingChangedFilter
+                              ? "pending"
+                              : w.second.id == ChainChangedFilter ? "chain"
+                                                                  : "???");
+                  w.second.changes.push_back(
+                      LocalisedLogEntry(SpecialLogEntry, hash));
                 }
         }
     // clear the filters now.
@@ -722,7 +731,7 @@ void Client::tick()
         m_bq.tick();
         m_lastTick = chrono::system_clock::now();
         if (m_report.ticks == 15)
-            LOG(m_loggerDetail) << activityReport();
+          BLOG(m_loggerDetail) << activityReport();
     }
 }
 
@@ -737,10 +746,11 @@ void Client::checkWatchGarbage()
                 if (m_watches[key].lastPoll != chrono::system_clock::time_point::max() && chrono::system_clock::now() - m_watches[key].lastPoll > chrono::seconds(20))
                 {
                     toUninstall.push_back(key);
-                    LOG(m_loggerDetail)
+                    BLOG(m_loggerDetail)
                         << "GC: Uninstall " << key << " ("
                         << chrono::duration_cast<chrono::seconds>(
-                               chrono::system_clock::now() - m_watches[key].lastPoll)
+                               chrono::system_clock::now() -
+                               m_watches[key].lastPoll)
                                .count()
                         << " s old)";
                 }

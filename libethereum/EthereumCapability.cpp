@@ -80,7 +80,7 @@ public:
     void onPeerTransactions(NodeID const& _peerID, RLP const& _r) override
     {
         unsigned itemCount = _r.itemCount();
-        LOG(m_logger) << "Transactions (" << dec << itemCount << " entries)";
+        BLOG(m_logger) << "Transactions (" << dec << itemCount << " entries)";
         m_tq.enqueue(_r, _peerID);
     }
 
@@ -157,13 +157,13 @@ public:
     void onPeerNodeData(NodeID const& /* _peerID */, RLP const& _r) override
     {
         unsigned itemCount = _r.itemCount();
-        LOG(m_logger) << "Node Data (" << dec << itemCount << " entries)";
+        BLOG(m_logger) << "Node Data (" << dec << itemCount << " entries)";
     }
 
     void onPeerReceipts(NodeID const& /* _peerID */, RLP const& _r) override
     {
         unsigned itemCount = _r.itemCount();
-        LOG(m_logger) << "Receipts (" << dec << itemCount << " entries)";
+        BLOG(m_logger) << "Receipts (" << dec << itemCount << " entries)";
     }
 
 private:
@@ -423,7 +423,7 @@ bool EthereumCapability::ensureInitialised()
         // First time - just initialise.
         m_latestBlockHashSent = m_chain.currentHash();
         m_latestBlockSent = m_chain.currentHash();
-        LOG(m_logger) << "Initialising: latest=" << m_latestBlockHashSent;
+        BLOG(m_logger) << "Initialising: latest=" << m_latestBlockHashSent;
 
         m_transactionsSent = m_tq.knownTransactions();
         return true;
@@ -490,7 +490,7 @@ void EthereumCapability::maintainTransactions()
             RLPStream ts;
             m_host->prep(peer.first, name(), ts, TransactionsPacket, n).appendRaw(b, n);
             m_host->sealAndSend(peer.first, ts);
-            LOG(m_logger) << "Sent " << n << " transactions to " << peer.first;
+            BLOG(m_logger) << "Sent " << n << " transactions to " << peer.first;
         }
         peer.second.setWaitingForTransactions(false);
     }
@@ -527,7 +527,7 @@ void EthereumCapability::maintainBlockHashes(h256 const& _currentHash)
 
     if (detailsFrom.totalDifficulty >= detailsTo.totalDifficulty)
         return;
-    
+
     // don't be sending more than c_maxSendNewBlocksCount "new" block hashes. if there are any
     // more we were probably waaaay behind.
     if (diff(detailsFrom.number, detailsTo.number) > c_maxSendNewBlocksCount)
@@ -536,8 +536,8 @@ void EthereumCapability::maintainBlockHashes(h256 const& _currentHash)
         return;
     }
 
-    LOG(m_logger) << "Sending new block hashes (current is " << _currentHash << ", was "
-                    << m_latestBlockHashSent << ")";
+    BLOG(m_logger) << "Sending new block hashes (current is " << _currentHash
+                   << ", was " << m_latestBlockHashSent << ")";
 
     h256s const blockHashes =
         std::get<0>(m_chain.treeRoute(m_latestBlockHashSent, _currentHash, false, false, true));
@@ -563,8 +563,8 @@ void EthereumCapability::maintainBlockHashes(h256 const& _currentHash)
         }
     }
     if (!peersWithoutBlock.empty())
-        LOG(m_logger) << "Announced " << blockHashes.size() << " block(s) to "
-                        << peersWithoutBlock.size() << " peers";
+      BLOG(m_logger) << "Announced " << blockHashes.size() << " block(s) to "
+                     << peersWithoutBlock.size() << " peers";
 
     m_latestBlockHashSent = _currentHash;
 }
@@ -644,9 +644,11 @@ bool EthereumCapability::interpretCapabilityPacket(
             auto const latestHash = _r[3].toHash<h256>();
             auto const genesisHash = _r[4].toHash<h256>();
 
-            LOG(m_logger) << "Status (from " << _peerID << "): " << peerProtocolVersion << " / "
-                          << networkId << " / " << genesisHash << ", TD: " << totalDifficulty
-                          << " = " << latestHash;
+            BLOG(m_logger) << "Status (from " << _peerID
+                           << "): " << peerProtocolVersion << " / " << networkId
+                           << " / " << genesisHash
+                           << ", TD: " << totalDifficulty << " = "
+                           << latestHash;
 
             remotePeer.setStatus(
                 peerProtocolVersion, networkId, totalDifficulty, latestHash, genesisHash);
@@ -674,9 +676,10 @@ bool EthereumCapability::interpretCapabilityPacket(
 
             if (skip > std::numeric_limits<unsigned>::max() - 1)
             {
-                LOG(m_loggerDetail)
-                    << "Requested block skip is too big: " << skip << " (peer: " << _peerID << ")";
-                break;
+              BLOG(m_loggerDetail)
+                  << "Requested block skip is too big: " << skip
+                  << " (peer: " << _peerID << ")";
+              break;
             }
 
             pair<bytes, unsigned> const rlpAndItemCount =
@@ -692,8 +695,9 @@ bool EthereumCapability::interpretCapabilityPacket(
         case BlockHeadersPacket:
         {
             if (remotePeer.asking() != Asking::BlockHeaders)
-                LOG(m_loggerImpolite) << "Peer " << _peerID
-                                      << " giving us block headers when we didn't ask for them.";
+              BLOG(m_loggerImpolite)
+                  << "Peer " << _peerID
+                  << " giving us block headers when we didn't ask for them.";
             else
             {
                 setIdle(_peerID);
@@ -704,13 +708,15 @@ bool EthereumCapability::interpretCapabilityPacket(
         case GetBlockBodiesPacket:
         {
             unsigned count = static_cast<unsigned>(_r.itemCount());
-            LOG(m_logger) << "GetBlockBodies (" << dec << count << " entries) from " << _peerID;
+            BLOG(m_logger) << "GetBlockBodies (" << dec << count
+                           << " entries) from " << _peerID;
 
             if (!count)
             {
-                LOG(m_loggerImpolite) << "Zero-entry GetBlockBodies: Not replying to " << _peerID;
-                m_host->updateRating(_peerID, -10);
-                break;
+              BLOG(m_loggerImpolite)
+                  << "Zero-entry GetBlockBodies: Not replying to " << _peerID;
+              m_host->updateRating(_peerID, -10);
+              break;
             }
 
             pair<bytes, unsigned> const rlpAndItemCount = m_hostData->blockBodies(_r);
@@ -725,8 +731,9 @@ bool EthereumCapability::interpretCapabilityPacket(
         case BlockBodiesPacket:
         {
             if (remotePeer.asking() != Asking::BlockBodies)
-                LOG(m_loggerImpolite)
-                    << "Peer " << _peerID << " giving us block bodies when we didn't ask for them.";
+              BLOG(m_loggerImpolite)
+                  << "Peer " << _peerID
+                  << " giving us block bodies when we didn't ask for them.";
             else
             {
                 setIdle(_peerID);
@@ -743,14 +750,18 @@ bool EthereumCapability::interpretCapabilityPacket(
         {
             unsigned itemCount = _r.itemCount();
 
-            LOG(m_logger) << "BlockHashes (" << dec << itemCount << " entries) "
-                          << (itemCount ? "" : " : NoMoreHashes") << " from " << _peerID;
+            BLOG(m_logger) << "BlockHashes (" << dec << itemCount
+                           << " entries) "
+                           << (itemCount ? "" : " : NoMoreHashes") << " from "
+                           << _peerID;
 
             if (itemCount > c_maxIncomingNewHashesCount)
             {
-                LOG(m_logger) << "Received too many hashes (" << itemCount << ") from " << _peerID
-                              << ", only processing first " << c_maxIncomingNewHashesCount << " hashes";
-                itemCount = c_maxIncomingNewHashesCount;
+              BLOG(m_logger) << "Received too many hashes (" << itemCount
+                             << ") from " << _peerID
+                             << ", only processing first "
+                             << c_maxIncomingNewHashesCount << " hashes";
+              itemCount = c_maxIncomingNewHashesCount;
             }
 
             vector<pair<h256, u256>> hashes(itemCount);
@@ -765,11 +776,13 @@ bool EthereumCapability::interpretCapabilityPacket(
             unsigned count = static_cast<unsigned>(_r.itemCount());
             if (!count)
             {
-                LOG(m_loggerImpolite) << "Zero-entry GetNodeData: Not replying to " << _peerID;
-                m_host->updateRating(_peerID, -10);
-                break;
+              BLOG(m_loggerImpolite)
+                  << "Zero-entry GetNodeData: Not replying to " << _peerID;
+              m_host->updateRating(_peerID, -10);
+              break;
             }
-            LOG(m_logger) << "GetNodeData (" << dec << count << " entries) from " << _peerID;
+            BLOG(m_logger) << "GetNodeData (" << dec << count
+                           << " entries) from " << _peerID;
 
             strings const data = m_hostData->nodeData(_r);
 
@@ -786,11 +799,13 @@ bool EthereumCapability::interpretCapabilityPacket(
             unsigned count = static_cast<unsigned>(_r.itemCount());
             if (!count)
             {
-                LOG(m_loggerImpolite) << "Zero-entry GetReceipts: Not replying to " << _peerID;
-                m_host->updateRating(_peerID, -10);
-                break;
+              BLOG(m_loggerImpolite)
+                  << "Zero-entry GetReceipts: Not replying to " << _peerID;
+              m_host->updateRating(_peerID, -10);
+              break;
             }
-            LOG(m_logger) << "GetReceipts (" << dec << count << " entries) from " << _peerID;
+            BLOG(m_logger) << "GetReceipts (" << dec << count
+                           << " entries) from " << _peerID;
 
             pair<bytes, unsigned> const rlpAndItemCount = m_hostData->receipts(_r);
 
@@ -804,8 +819,9 @@ bool EthereumCapability::interpretCapabilityPacket(
         case NodeDataPacket:
         {
             if (remotePeer.asking() != Asking::NodeData)
-                LOG(m_loggerImpolite)
-                    << "Peer " << _peerID << " giving us node data when we didn't ask for them.";
+              BLOG(m_loggerImpolite)
+                  << "Peer " << _peerID
+                  << " giving us node data when we didn't ask for them.";
             else
             {
                 setIdle(_peerID);
@@ -816,8 +832,9 @@ bool EthereumCapability::interpretCapabilityPacket(
         case ReceiptsPacket:
         {
             if (remotePeer.asking() != Asking::Receipts)
-                LOG(m_loggerImpolite)
-                    << "Peer " << _peerID << " giving us receipts when we didn't ask for them.";
+              BLOG(m_loggerImpolite)
+                  << "Peer " << _peerID
+                  << " giving us receipts when we didn't ask for them.";
             else
             {
                 setIdle(_peerID);
@@ -831,13 +848,14 @@ bool EthereumCapability::interpretCapabilityPacket(
     }
     catch (Exception const&)
     {
-        LOG(m_loggerWarn) << "Peer " << _peerID << " causing an exception: "
-                          << boost::current_exception_diagnostic_information() << " " << _r;
+      BLOG(m_loggerWarn) << "Peer " << _peerID << " causing an exception: "
+                         << boost::current_exception_diagnostic_information()
+                         << " " << _r;
     }
     catch (std::exception const& _e)
     {
-        LOG(m_loggerWarn) << "Peer " << _peerID << " causing an exception: " << _e.what() << " "
-                          << _r;
+      BLOG(m_loggerWarn) << "Peer " << _peerID
+                         << " causing an exception: " << _e.what() << " " << _r;
     }
 
     return true;
@@ -990,8 +1008,8 @@ void EthereumCapability::propagateNewBlocks(std::shared_ptr<VerifiedBlocks const
         if (!peersToSend.empty())
         {
             m_latestBlockSent = latestHash;
-            LOG(m_logger) << "Sent " << _newBlocks->size() << " block(s) to " << peersToSend.size()
-                          << " peers";
+            BLOG(m_logger) << "Sent " << _newBlocks->size() << " block(s) to "
+                           << peersToSend.size() << " peers";
         }
     });
 }

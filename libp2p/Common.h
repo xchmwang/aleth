@@ -72,11 +72,11 @@ struct ECDHEError: virtual Exception {};
         (boost::log::keywords::severity = SEVERITY)(boost::log::keywords::channel = "net"))
 
 NET_GLOBAL_LOGGER(netnote, VerbosityInfo)
-#define cnetnote LOG(dev::p2p::g_netnoteLogger::get())
+#define cnetnote BLOG(dev::p2p::g_netnoteLogger::get())
 NET_GLOBAL_LOGGER(netlog, VerbosityDebug)
-#define cnetlog LOG(dev::p2p::g_netlogLogger::get())
+#define cnetlog BLOG(dev::p2p::g_netlogLogger::get())
 NET_GLOBAL_LOGGER(netdetails, VerbosityTrace)
-#define cnetdetails LOG(dev::p2p::g_netdetailsLogger::get())
+#define cnetdetails BLOG(dev::p2p::g_netdetailsLogger::get())
 
 enum P2pPacketType
 {
@@ -183,7 +183,7 @@ public:
     bool operator!=(NodeIPEndpoint const& _cmp) const {
         return !operator==(_cmp);
     }
-    
+
     void streamRLP(RLPStream& _s, RLPAppend _append = StreamList) const;
     void interpretRLP(RLP const& _r);
 

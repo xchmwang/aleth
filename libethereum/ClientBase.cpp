@@ -130,7 +130,7 @@ LocalisedLogEntries ClientBase::logs(LogFilter const& _f) const
     LocalisedLogEntries ret;
     unsigned begin = min(bc().number() + 1, (unsigned)numberFromHash(_f.latest()));
     unsigned end = min(bc().number(), min(begin, (unsigned)numberFromHash(_f.earliest())));
-    
+
     // Handle pending transactions differently as they're not on the block chain.
     if (begin > bc().number())
     {
@@ -208,8 +208,8 @@ unsigned ClientBase::installWatch(LogFilter const& _f, Reaping _r)
         Guard l(x_filtersWatches);
         if (!m_filters.count(h))
         {
-            LOG(m_loggerWatch) << "FFF" << _f << h;
-            m_filters.insert(make_pair(h, _f));
+          BLOG(m_loggerWatch) << "FFF" << _f << h;
+          m_filters.insert(make_pair(h, _f));
         }
     }
     return installWatch(h, _r);
@@ -222,7 +222,7 @@ unsigned ClientBase::installWatch(h256 _h, Reaping _r)
         Guard l(x_filtersWatches);
         ret = m_watches.size() ? m_watches.rbegin()->first + 1 : 0;
         m_watches[ret] = ClientWatch(_h, _r);
-        LOG(m_loggerWatch) << "+++" << ret << _h;
+        BLOG(m_loggerWatch) << "+++" << ret << _h;
     }
 #if INITIAL_STATE_AS_CHANGES
     auto ch = logs(ret);
@@ -238,34 +238,33 @@ unsigned ClientBase::installWatch(h256 _h, Reaping _r)
 
 bool ClientBase::uninstallWatch(unsigned _i)
 {
-    LOG(m_loggerWatch) << "XXX" << _i;
+  BLOG(m_loggerWatch) << "XXX" << _i;
 
-    Guard l(x_filtersWatches);
-    
-    auto it = m_watches.find(_i);
-    if (it == m_watches.end())
-        return false;
-    auto id = it->second.id;
-    m_watches.erase(it);
-    
-    auto fit = m_filters.find(id);
-    if (fit != m_filters.end())
-        if (!--fit->second.refCount)
-        {
-            LOG(m_loggerWatch) << "*X*" << fit->first << ":" << fit->second.filter;
-            m_filters.erase(fit);
-        }
-    return true;
+  Guard l(x_filtersWatches);
+
+  auto it = m_watches.find(_i);
+  if (it == m_watches.end())
+    return false;
+  auto id = it->second.id;
+  m_watches.erase(it);
+
+  auto fit = m_filters.find(id);
+  if (fit != m_filters.end())
+    if (!--fit->second.refCount) {
+      BLOG(m_loggerWatch) << "*X*" << fit->first << ":" << fit->second.filter;
+      m_filters.erase(fit);
+    }
+  return true;
 }
 
 LocalisedLogEntries ClientBase::peekWatch(unsigned _watchId) const
 {
     Guard l(x_filtersWatches);
 
-    //	LOG(m_loggerWatch) << "peekWatch" << _watchId;
+    //	BLOG(m_loggerWatch) << "peekWatch" << _watchId;
     auto& w = m_watches.at(_watchId);
-    //	LOG(m_loggerWatch) << "lastPoll updated to " <<
-    //chrono::duration_cast<chrono::seconds>(chrono::system_clock::now().time_since_epoch()).count();
+    //	BLOG(m_loggerWatch) << "lastPoll updated to " <<
+    // chrono::duration_cast<chrono::seconds>(chrono::system_clock::now().time_since_epoch()).count();
     if (w.lastPoll != chrono::system_clock::time_point::max())
         w.lastPoll = chrono::system_clock::now();
     return w.changes;
@@ -276,10 +275,10 @@ LocalisedLogEntries ClientBase::checkWatch(unsigned _watchId)
     Guard l(x_filtersWatches);
     LocalisedLogEntries ret;
 
-    //	LOG(m_loggerWatch) << "checkWatch" << _watchId;
+    //	BLOG(m_loggerWatch) << "checkWatch" << _watchId;
     auto& w = m_watches.at(_watchId);
-    //	LOG(m_loggerWatch) << "lastPoll updated to " <<
-    //chrono::duration_cast<chrono::seconds>(chrono::system_clock::now().time_since_epoch()).count();
+    //	BLOG(m_loggerWatch) << "lastPoll updated to " <<
+    // chrono::duration_cast<chrono::seconds>(chrono::system_clock::now().time_since_epoch()).count();
     std::swap(ret, w.changes);
     if (w.lastPoll != chrono::system_clock::time_point::max())
         w.lastPoll = chrono::system_clock::now();
@@ -345,7 +344,7 @@ LocalisedTransactionReceipt ClientBase::localisedTransactionReceipt(h256 const& 
         tl.first,
         numberFromHash(tl.first),
         t.from(),
-        t.to(), 
+        t.to(),
         tl.second,
         gasUsed,
         toAddress(t.from(), t.nonce()));

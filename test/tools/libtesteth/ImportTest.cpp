@@ -912,7 +912,7 @@ void ImportTest::traceStateDiff()
                 std::ostringstream log;
                 log << "trNetID: " << tr.netId << "\n";
                 log << "trDataInd: " << tr.dataInd << " tdGasInd: " << tr.gasInd << " trValInd: " << tr.valInd << "\n";
-                LOG(m_logger) << log.str();
+                BLOG(m_logger) << log.str();
                 fillJsonWithStateChange(m_statePre, tr.postState, tr.changeLog); //output std log
             }
     }
