@@ -43,6 +43,10 @@
 
 #include <aleth/buildinfo.h>
 
+#include "common.h"
+#include "ubre_callback.h"
+#include <libubre/fs/util.h>
+
 using namespace std;
 using namespace dev;
 using namespace dev::p2p;
@@ -105,88 +109,126 @@ void stopSealingAfterXBlocks(eth::Client* _c, unsigned _start, unsigned& io_mini
 }
 }
 
+void init_and_start_nbre(const std::string &auth_admin_addr,
+                         const std::string &nipc_listen, uint16_t nipc_port) {
+
+  LOG(INFO) << "init and start nbre";
+  const char *root_dir = neb::configuration::instance().nbre_root_dir().c_str();
+  std::string nbre_path = neb::fs::join_path(root_dir, "bin/nbre");
+
+  set_recv_nbre_version_callback(nbre_version_callback);
+  set_recv_nbre_ir_list_callback(nbre_ir_list_callback);
+  set_recv_nbre_ir_versions_callback(nbre_ir_versions_callback);
+  set_recv_nbre_nr_handle_callback(nbre_nr_handle_callback);
+  set_recv_nbre_nr_result_by_handle_callback(nbre_nr_result_callback);
+  set_recv_nbre_nr_result_by_height_callback(nbre_nr_result_by_height_callback);
+  set_recv_nbre_nr_sum_callback(nbre_nr_sum_callback);
+  set_recv_nbre_dip_reward_callback(nbre_dip_reward_callback);
+  set_recv_nbre_experiment_callback(nbre_experiment_callback);
+  set_recv_nbre_lib_callback(nbre_lib_callback);
+
+  uint64_t nbre_start_height = 1;
+  nbre_params_t params{
+      root_dir,
+      nbre_path.c_str(),
+      neb::configuration::instance().neb_db_dir().c_str(),
+      neb::configuration::instance().nbre_db_dir().c_str(),
+      neb::configuration::instance().nbre_log_dir().c_str(),
+      auth_admin_addr.c_str(),
+      nbre_start_height,
+  };
+
+  params.m_nipc_listen = nipc_listen.c_str();
+  params.m_nipc_port = nipc_port;
+
+  auto ret = start_nbre_ipc(params);
+  LOG(INFO) << "init nbre return: " << ret;
+  if (ret != ipc_status_succ) {
+    nbre_ipc_shutdown();
+    exit(-1);
+  }
+}
+
 int main(int argc, char** argv)
 {
-    setDefaultOrCLocale();
+  setDefaultOrCLocale();
 
-    // Init secp256k1 context by calling one of the functions.
-    toPublic(Secret{});
+  // Init secp256k1 context by calling one of the functions.
+  toPublic(Secret{});
 
-    // Init defaults
-    Ethash::init();
-    NoProof::init();
-    NoReward::init();
+  // Init defaults
+  Ethash::init();
+  NoProof::init();
+  NoReward::init();
 
-    /// Operating mode.
-    OperationMode mode = OperationMode::Node;
+  /// Operating mode.
+  OperationMode mode = OperationMode::Node;
 
-    /// File name for import/export.
-    string filename;
-    bool safeImport = false;
+  /// File name for import/export.
+  string filename;
+  bool safeImport = false;
 
-    /// Hashes/numbers for export range.
-    string exportFrom = "1";
-    string exportTo = "latest";
-    Format exportFormat = Format::Binary;
+  /// Hashes/numbers for export range.
+  string exportFrom = "1";
+  string exportTo = "latest";
+  Format exportFormat = Format::Binary;
 
-    bool ipc = true;
+  bool ipc = true;
 
-    string jsonAdmin;
-    ChainParams chainParams;
+  string jsonAdmin;
+  ChainParams chainParams;
 
-    bool upnp = true;
-    WithExisting withExisting = WithExisting::Trust;
+  bool upnp = true;
+  WithExisting withExisting = WithExisting::Trust;
 
-    /// Networking params.
-    string listenIP;
-    unsigned short listenPort = dev::p2p::c_defaultListenPort;
-    string publicIP;
-    string remoteHost;
-    unsigned short remotePort = dev::p2p::c_defaultListenPort;
+  /// Networking params.
+  string listenIP;
+  unsigned short listenPort = dev::p2p::c_defaultListenPort;
+  string publicIP;
+  string remoteHost;
+  unsigned short remotePort = dev::p2p::c_defaultListenPort;
 
-    unsigned peers = 11;
-    unsigned peerStretch = 7;
-    std::map<p2p::NodeID, pair<NodeIPEndpoint, bool>> preferredNodes;
-    bool bootstrap = true;
-    bool disableDiscovery = false;
-    bool allowLocalDiscovery = false;
-    static const unsigned NoNetworkID = (unsigned)-1;
-    unsigned networkID = NoNetworkID;
+  unsigned peers = 11;
+  unsigned peerStretch = 7;
+  std::map<p2p::NodeID, pair<NodeIPEndpoint, bool>> preferredNodes;
+  bool bootstrap = true;
+  bool disableDiscovery = false;
+  bool allowLocalDiscovery = false;
+  static const unsigned NoNetworkID = (unsigned)-1;
+  unsigned networkID = NoNetworkID;
 
-    /// Mining params
-    unsigned mining = 0;
-    Address author;
-    strings presaleImports;
-    bytes extraData;
+  /// Mining params
+  unsigned mining = 0;
+  Address author;
+  strings presaleImports;
+  bytes extraData;
 
-    /// Transaction params
-//  TransactionPriority priority = TransactionPriority::Medium;
-//  double etherPrice = 30.679;
-//  double blockFees = 15.0;
-    u256 askPrice = 0;
-    u256 bidPrice = DefaultGasPrice;
-    bool alwaysConfirm = true;
+  /// Transaction params
+  //  TransactionPriority priority = TransactionPriority::Medium;
+  //  double etherPrice = 30.679;
+  //  double blockFees = 15.0;
+  u256 askPrice = 0;
+  u256 bidPrice = DefaultGasPrice;
+  bool alwaysConfirm = true;
 
-    /// Wallet password stuff
-    string masterPassword;
-    bool masterSet = false;
+  /// Wallet password stuff
+  string masterPassword;
+  bool masterSet = false;
 
-    /// Whisper
-    bool testingMode = false;
+  /// Whisper
+  bool testingMode = false;
 
-    fs::path configFile = getDataDir() / fs::path("config.rlp");
-    bytes b = contents(configFile);
+  fs::path configFile = getDataDir() / fs::path("config.rlp");
+  bytes b = contents(configFile);
 
-    strings passwordsToNote;
-    Secrets toImport;
-    if (b.size())
-    {
-        try
-        {
-            RLP config(b);
-            author = config[1].toHash<Address>();
-        }
-        catch (...) {}
+  strings passwordsToNote;
+  Secrets toImport;
+  if (b.size()) {
+    try {
+      RLP config(b);
+      author = config[1].toHash<Address>();
+    } catch (...) {
+    }
     }
 
     if (argc > 1 && (string(argv[1]) == "wallet" || string(argv[1]) == "account"))
@@ -245,6 +287,19 @@ int main(int argc, char** argv)
             .c_str());
     addTransactingOption("unsafe-transactions",
         "Allow all transactions to proceed without verification; EXTREMELY UNSAFE\n");
+
+    po::options_description clientUBRE("CLIENT UBRE", c_lineWidth);
+    auto addUBREOption = clientUBRE.add_options();
+    addUBREOption("glog-log-to-stderr", po::value<bool>()->default_value(false),
+                  "");
+    addUBREOption("use-test-blockchain", po::value<bool>()->default_value(true),
+                  "");
+    addUBREOption("admin-addr", po::value<std::string>()->default_value(""),
+                  "");
+    addUBREOption("nipc-listen",
+                  po::value<std::string>()->default_value("127.0.0.1"), "");
+    addUBREOption("nipc-port", po::value<uint16_t>()->default_value(6987),
+                  "\n");
 
     po::options_description clientMining("CLIENT MINING", c_lineWidth);
     auto addMininigOption = clientMining.add_options();
@@ -350,6 +405,7 @@ int main(int argc, char** argv)
     po::options_description allowedOptions("Allowed options");
     allowedOptions.add(clientDefaultMode)
         .add(clientTransacting)
+        .add(clientUBRE)
         .add(clientMining)
         .add(minerOptions)
         .add(clientNetworking)
@@ -670,7 +726,8 @@ int main(int argc, char** argv)
              << "WALLET USAGE:\n";
         AccountManager::streamAccountHelp(cout);
         AccountManager::streamWalletHelp(cout);
-        cout << clientDefaultMode << clientTransacting << clientNetworking << clientMining << minerOptions;
+        cout << clientDefaultMode << clientTransacting << clientUBRE
+             << clientNetworking << clientMining << minerOptions;
         cout << importExportMode << dbOptions << vmOptions << loggingProgramOptions << generalOptions;
         return AlethErrors::Success;
     }
@@ -1033,18 +1090,29 @@ int main(int argc, char** argv)
       auto hash = c.hashFromNumber(height);
       auto txs = c.transactions(hash);
       for (auto &tx : txs) {
-        std::cout << toHex(tx.data()) << std::endl;
+        LOG(INFO) << "transaction data: " << toHex(tx.data());
       }
     };
+    auto admin_addr = vm["admin-addr"].as<std::string>();
+    auto nipc_listen = vm["nipc-listen"].as<std::string>();
+    auto nipc_port = vm["nipc-port"].as<uint16_t>();
+    init_and_start_nbre(admin_addr, nipc_listen, nipc_port);
 
     if (mining)
         c.startSealing();
 
     auto tmpn = n;
     while (!exitHandler.shouldExit()) {
-      if (c.blockChain().details().number > tmpn) {
-        tmpn = c.blockChain().details().number;
-        extract_block(tmpn);
+      auto cur_h = c.blockChain().details().number;
+      if (tmpn < cur_h) {
+        LOG(INFO) << "find new blocks, tmpn: " << tmpn << ", cur_h: " << cur_h;
+        for (auto h = tmpn; h < cur_h; h++) {
+          ipc_nbre_ir_transactions_create(nullptr, h);
+          extract_block(h);
+          LOG(INFO) << "to send transactions with height: " << h;
+          ipc_nbre_ir_transactions_send(nullptr, h);
+        }
+        tmpn = cur_h;
       }
       stopSealingAfterXBlocks(&c, n, mining);
     }
