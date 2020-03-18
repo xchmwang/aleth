@@ -1090,7 +1090,11 @@ int main(int argc, char** argv)
       auto hash = c.hashFromNumber(height);
       auto txs = c.transactions(hash);
       for (auto &tx : txs) {
-        LOG(INFO) << "transaction data: " << toHex(tx.data());
+        auto hex_str = toHex(tx.data());
+        LOG(INFO) << "transaction data: " << hex_str
+                  << ", at height: " << height;
+        ipc_nbre_ir_transactions_append(nullptr, height, hex_str.c_str(),
+                                        hex_str.size());
       }
     };
     auto admin_addr = vm["admin-addr"].as<std::string>();
@@ -1105,11 +1109,9 @@ int main(int argc, char** argv)
     while (!exitHandler.shouldExit()) {
       auto cur_h = c.blockChain().details().number;
       if (tmpn < cur_h) {
-        LOG(INFO) << "find new blocks, tmpn: " << tmpn << ", cur_h: " << cur_h;
         for (auto h = tmpn; h < cur_h; h++) {
           ipc_nbre_ir_transactions_create(nullptr, h);
           extract_block(h);
-          LOG(INFO) << "to send transactions with height: " << h;
           ipc_nbre_ir_transactions_send(nullptr, h);
         }
         tmpn = cur_h;
