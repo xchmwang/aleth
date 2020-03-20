@@ -43,6 +43,7 @@
 
 #include <aleth/buildinfo.h>
 
+#include "cli_driver.h"
 #include "common.h"
 #include "ubre_callback.h"
 #include <libubre/fs/util.h>
@@ -299,6 +300,10 @@ int main(int argc, char** argv)
     addUBREOption("nipc-listen",
                   po::value<std::string>()->default_value("127.0.0.1"), "");
     addUBREOption("nipc-port", po::value<uint16_t>()->default_value(6987),
+                  "\n");
+    addUBREOption("rpc-listen",
+                  po::value<std::string>()->default_value("127.0.0.1"), "");
+    addUBREOption("rpc-port", po::value<uint16_t>()->default_value(0x1958),
                   "\n");
 
     po::options_description clientMining("CLIENT MINING", c_lineWidth);
@@ -1085,6 +1090,10 @@ int main(int argc, char** argv)
     signal(SIGTERM, &ExitHandler::exitHandler);
     signal(SIGINT, &ExitHandler::exitHandler);
 
+    auto rpc_listen = vm["rpc-listen"].as<std::string>();
+    auto rpc_port = vm["rpc-port"].as<uint16_t>();
+    auto cli_ptr = std::make_shared<cli_driver>(rpc_listen, rpc_port);
+
     unsigned n = c.blockChain().details().number;
     auto extract_block = [&c](unsigned height) {
       auto hash = c.hashFromNumber(height);
@@ -1107,6 +1116,7 @@ int main(int argc, char** argv)
 
     auto tmpn = n;
     while (!exitHandler.shouldExit()) {
+      cli_ptr->handle_cli_pkgs();
       auto cur_h = c.blockChain().details().number;
       if (tmpn < cur_h) {
         for (auto h = tmpn; h < cur_h; h++) {
