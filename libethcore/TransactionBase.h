@@ -125,13 +125,13 @@ public:
     void setNonce(u256 const& _n) { clearSignature(); m_nonce = _n; }
 
     /// @returns true if the transaction was signed
-    bool hasSignature() const { return m_vrs.has_value(); }
+    bool hasSignature() const { return m_vrs.is_initialized(); }
 
     /// @returns true if the transaction was signed with zero signature
     bool hasZeroSignature() const { return m_vrs && isZeroSignature(m_vrs->r, m_vrs->s); }
 
     /// @returns true if the transaction uses EIP155 replay protection
-    bool isReplayProtected() const { return m_chainId.has_value(); }
+    bool isReplayProtected() const { return m_chainId.is_initialized(); }
 
     /// @returns the signature of the transaction (the signature has the sender encoded in it)
     /// @throws TransactionIsUnsigned if signature was not initialized
