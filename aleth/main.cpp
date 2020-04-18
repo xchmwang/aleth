@@ -116,6 +116,9 @@ void init_and_start_nbre(const std::string &auth_admin_addr,
   LOG(INFO) << "init and start nbre";
   const char *root_dir = neb::configuration::instance().nbre_root_dir().c_str();
   std::string nbre_path = neb::fs::join_path(root_dir, "bin/nbre");
+  neb::configuration::instance().neb_db_dir() = neb::fs::join_path(root_dir, "data.db");
+  neb::configuration::instance().nbre_db_dir() = neb::fs::join_path(root_dir, "nbre.db");
+  neb::configuration::instance().nbre_log_dir() = neb::fs::join_path(root_dir, "logs");
 
   set_recv_nbre_version_callback(nbre_version_callback);
   set_recv_nbre_ir_list_callback(nbre_ir_list_callback);
@@ -296,6 +299,8 @@ int main(int argc, char** argv)
     addUBREOption("use-test-blockchain", po::value<bool>()->default_value(true),
                   "");
     addUBREOption("admin-addr", po::value<std::string>()->default_value(""),
+                  "");
+    addUBREOption("nbre-root-dir", po::value<std::string>()->default_value("./"),
                   "");
     addUBREOption("nipc-listen",
                   po::value<std::string>()->default_value("127.0.0.1"), "");
@@ -1107,6 +1112,9 @@ int main(int argc, char** argv)
       }
     };
     auto admin_addr = vm["admin-addr"].as<std::string>();
+    auto nbre_root_dir = vm["nbre-root-dir"].as<std::string>();
+    neb::configuration::instance().nbre_root_dir() = nbre_root_dir;
+
     auto nipc_listen = vm["nipc-listen"].as<std::string>();
     auto nipc_port = vm["nipc-port"].as<uint16_t>();
     init_and_start_nbre(admin_addr, nipc_listen, nipc_port);
